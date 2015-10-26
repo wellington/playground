@@ -16,6 +16,9 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var certFile = "server.crt"
+var keyFile = "server.key"
+
 func main() {
 
 	r := mux.NewRouter()
@@ -36,8 +39,6 @@ func main() {
 		log.Fatal(err)
 	}
 	svr := &http.Server{}
-	certFile := "server.crt"
-	keyFile := "server.key"
 
 	svr.TLSConfig = &tls.Config{
 		Certificates: make([]tls.Certificate, 1),
@@ -57,9 +58,15 @@ func main() {
 
 var tmpls *template.Template
 var tplHome *template.Template
+var cert tls.Certificate
 
 func init() {
+	var err error
 	tmpls = template.New("nevermatch").Delims("{{{", "}}}")
+	cert, err = tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Fatal("cert failure:", err)
+	}
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +78,12 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func compile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	slurp, err := http.Post("http://localhost:12345", "", r.Body)
+	cli := http.Client{}
+	cli.Transport = &http2.Transport{
+		InsecureTLSDial: false,
+	}
+
+	slurp, err := cli.Post("https://dumass.local:12345", "application/json", r.Body)
 	if err != nil {
 		log.Println("ERROR contacting wt:", err)
 		w.WriteHeader(http.StatusInternalServerError)
