@@ -1,14 +1,72 @@
 <!doctype html>
-<html lang="en" ng-app>
+<html lang="en" ng-app="app">
 <head>
   <meta charset="utf-8">
   <title>My HTML File</title>
+  <link rel="stylesheet" href="static/css/bootstrap.min.css">
   <link rel="stylesheet" href="static/css/bootstrap-theme.min.css">
   <script src="static/js/angular.min.js"></script>
+  <script src="static/js/app.js"></script>
+  <style>
+   textarea {
+       width: 100%;
+       height: 350px;
+   }
+  </style>
+  <script>
+   app.controller('ExampleController', ['$scope', 'compile', function($scope, compile) {
+     console.log('are you running');
+     $scope.list = [];
+     $scope.text = 'div { p { color: red; } }';
+     $scope.compiled;
+     $scope.elapsed;
+     $scope.error;
+     $scope.submit = function() {
+       if ($scope.text) {
+         compile($scope.text).then(function(resp) {
+           console.log(resp)
+           // success
+           if (resp && resp.data) {
+             var data = resp.data;
+             $scope.elapsed = data.elapsed;
+             $scope.compiled = data.contents;
+             $scope.error = data.error;
+           }
+         }, function() {
+           $scope.error = arguments;
+         })
+       }
+     };
+     $scope.submit();
+   }]);
+</script>
 </head>
 <body>
+  <div class="container" ng-controller="ExampleController">
+    <div class="row">
+      <div class="col-xs-6">
+        <form ng-submit="submit()" ng-model="form" ng-keyup="submit()" >
+          <div class="form-group">
+            Enter text and hit enter:<br/>
+            <textarea height="1000" width="600" type="text" ng-model="text" name="text" ></textarea>
+          </div>
 
-  <p>Nothing here {{'yet' + '!'}}</p>
+          <div class="form-group">
+            <input type="submit" id="submit" value="Submit" />
+          </div>
+        </form>
+      </div>
+      <div class="col-xs-6">
+        <span ng-show="elapsed">Compiled in <b>{{elapsed}}</b></span>
+        <div ng-show="error">
+          <b>Errors:</b>
+          <pre class="text-danger">{{error}}</pre>
+        </div>
+        <pre ng-show="compiled">{{compiled}}</pre>
+      </div>
+  </div>
+</div>
+
 
 </body>
 </html>
