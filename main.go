@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -10,8 +11,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-
-	"golang.org/x/net/http2"
 
 	"github.com/gorilla/mux"
 )
@@ -49,7 +48,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// Attaches http2
-	http2.ConfigureServer(svr, &http2.Server{})
+	// http2.ConfigureServer(svr, &http2.Server{})
 	log.Println("Listening on:", lis.Addr())
 
 	tlsLis := tls.NewListener(lis, svr.TLSConfig)
@@ -76,21 +75,41 @@ func home(w http.ResponseWriter, r *http.Request) {
 	tplHome.ExecuteTemplate(w, "index.html", nil)
 }
 
+func doCompile(body io.Reader) (io.Reader, error) {
+	cli := http.Client{}
+
+	urlStr := "https://dumass.local:12345"
+	slurp, err := cli.Post(urlStr, "application/json", body)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Received response as:", slurp.Proto)
+	return slurp.Body, nil
+}
+
+func mustCompile(r io.Reader, err error) bytes.Buffer {
+	if err != nil {
+		panic(err)
+	}
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	if err != nil {
+		panic(err)
+	}
+	return buf
+}
+
 func compile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	cli := http.Client{}
-	cli.Transport = &http2.Transport{
-		InsecureTLSDial: false,
-	}
 
-	slurp, err := cli.Post("https://dumass.local:12345", "application/json", r.Body)
+	resp, err := doCompile(r.Body)
 	if err != nil {
 		log.Println("ERROR contacting wt:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error":"could not contact upstream wellington"}`))
 		return
 	}
-	io.Copy(w, slurp.Body)
+	io.Copy(w, resp)
 }
 
 func stream(w http.ResponseWriter, r *http.Request) {
